@@ -28,12 +28,26 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+
+
+    const bookingCollection = client.db("flyPoint").collection("bookings")
+
+
+    //booking related api
+    app.post('/booking', async(req, res) => {
+      const booking = req.body
+      console.log(booking)
+      const result = await bookingCollection.insertOne(booking)
+      res.send(result)
+    })
+
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
-    await client.close();
+    // await client.close();
   }
 }
 run().catch(console.dir);
