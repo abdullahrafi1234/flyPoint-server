@@ -41,7 +41,7 @@ async function run() {
       res.send(result)
     })
 
-    app.get('booking/:id', async(req, res) => {
+    app.get('/booking/:id', async(req, res) => {
       const id = req.params.id
       const query = {_id: new ObjectId(id)}
       const result = await bookingCollection.findOne(query)
@@ -54,6 +54,44 @@ async function run() {
       const result = await bookingCollection.insertOne(booking)
       res.send(result)
     })
+
+    app.patch('/booking/:id', async(req, res) => {
+      const parcel = req.body
+      const id = req.params?.id
+      console.log(id)
+      const filter = {_id: new ObjectId(id)}
+      const updateDoc = {
+        $set: {
+            phone: parcel.phone,
+            type: parcel.type,
+            weight: parcel.weight,
+            receiversName:parcel.receiversName,
+            receiversPhone: parcel.receiversPhone,
+            deliveryAddress: parcel.deliveryAddress,
+            deliveryDate: parcel.deliveryDate,
+            latitude: parcel.latitude,
+            longitude: parcel.longitude
+        }
+      }
+      const result = await bookingCollection.updateOne(filter, updateDoc)
+      res.send(result)
+    })
+
+    //cancel
+    app.patch('/bookings/:id', async(req, res) => {
+      const parcel = req.body
+      const id = req.params?.id
+      console.log(id)
+      const filter = {_id: new ObjectId(id)}
+      const updateDoc = {
+        $set: {
+            status: parcel.status,
+        }
+      }
+      const result = await bookingCollection.updateOne(filter, updateDoc)
+      res.send(result)
+    })
+
 
 
     // Send a ping to confirm a successful connection
