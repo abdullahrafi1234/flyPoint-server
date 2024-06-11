@@ -35,57 +35,59 @@ async function run() {
 
     //booking related api
 
-    app.get('/booking', async(req, res) => {
-      
-      const result = await bookingCollection.find().toArray()
+    app.get('/booking', async (req, res) => {
+      const email = req.query.email
+      const query = { email: email }
+      const result = await bookingCollection.find(query).toArray()
       res.send(result)
     })
 
-    app.get('/booking/:id', async(req, res) => {
+    app.get('/booking/:id', async (req, res) => {
       const id = req.params.id
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) }
       const result = await bookingCollection.findOne(query)
       res.send(result)
     })
 
-    app.post('/booking', async(req, res) => {
+    app.post('/booking', async (req, res) => {
       const booking = req.body
       console.log(booking)
       const result = await bookingCollection.insertOne(booking)
       res.send(result)
     })
 
-    app.patch('/booking/:id', async(req, res) => {
+    //update method
+    app.patch('/booking/:id', async (req, res) => {
       const parcel = req.body
       const id = req.params?.id
       console.log(id)
-      const filter = {_id: new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) }
       const updateDoc = {
         $set: {
-            phone: parcel.phone,
-            type: parcel.type,
-            weight: parcel.weight,
-            receiversName:parcel.receiversName,
-            receiversPhone: parcel.receiversPhone,
-            deliveryAddress: parcel.deliveryAddress,
-            deliveryDate: parcel.deliveryDate,
-            latitude: parcel.latitude,
-            longitude: parcel.longitude
+          phone: parcel.phone,
+          type: parcel.type,
+          weight: parcel.weight,
+          receiversName: parcel.receiversName,
+          receiversPhone: parcel.receiversPhone,
+          deliveryAddress: parcel.deliveryAddress,
+          deliveryDate: parcel.deliveryDate,
+          latitude: parcel.latitude,
+          longitude: parcel.longitude
         }
       }
       const result = await bookingCollection.updateOne(filter, updateDoc)
       res.send(result)
     })
 
-    //cancel
-    app.patch('/bookings/:id', async(req, res) => {
+    //cancel method
+    app.patch('/bookings/:id', async (req, res) => {
       const parcel = req.body
       const id = req.params?.id
       console.log(id)
-      const filter = {_id: new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) }
       const updateDoc = {
         $set: {
-            status: parcel.status,
+          status: parcel.status,
         }
       }
       const result = await bookingCollection.updateOne(filter, updateDoc)
@@ -107,9 +109,9 @@ run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
-    res.send('Fly point is flying')
+  res.send('Fly point is flying')
 })
 
 app.listen(port, () => {
-    console.log(`Fly Point is Flying on port: ${port}`)
+  console.log(`Fly Point is Flying on port: ${port}`)
 })
