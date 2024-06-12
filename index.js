@@ -45,15 +45,15 @@ async function run() {
     const verifyToken = (req, res, next) => {
       console.log('inside verify token', req.headers.authorization)
       if (!req.headers.authorization) {
-          return res.status(401).send({ message: 'unauthorized access' })
+        return res.status(401).send({ message: 'unauthorized access' })
       }
       const token = req.headers.authorization.split(' ')[1]
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-          if (err) {
-              return res.status(401).send({ message: 'unauthorized access' })
-          }
-          req.decoded = decoded
-          next();
+        if (err) {
+          return res.status(401).send({ message: 'unauthorized access' })
+        }
+        req.decoded = decoded
+        next();
       })
       // next()
     }
@@ -190,6 +190,23 @@ async function run() {
       }
       const result = await bookingCollection.updateOne(filter, updateDoc)
       res.send(result)
+    })
+
+    //payment intent
+    app.post('/create-payment-intent', async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100)
+      console.log('inside amount', amount)
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: [
+          'card'
+        ]
+      })
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
     })
 
 
