@@ -31,6 +31,21 @@ async function run() {
 
 
     const bookingCollection = client.db("flyPoint").collection("bookings")
+    const userCollection = client.db("flyPoint").collection("users")
+
+
+    //users related api
+    app.post('/users', async (req, res) => {
+      const user = req.body
+      //checking existing user
+      const query = { email: user.email }
+      const existingUser = await userCollection.findOne(query)
+      if (existingUser) {
+        return res.send({ message: 'user already exists', insertedId: null })
+      }
+      const result = await userCollection.insertOne(user)
+      res.send(result)
+    })
 
 
     //booking related api
