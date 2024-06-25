@@ -34,6 +34,7 @@ async function run() {
 
     const bookingCollection = client.db("flyPoint").collection("bookings")
     const userCollection = client.db("flyPoint").collection("users")
+    const reviewCollection = client.db("flyPoint").collection("reviews")
 
     //jwt related api
     app.post('/jwt', async (req, res) => {
@@ -69,6 +70,74 @@ async function run() {
       res.send(result)
     })
 
+    app.get('/users/admin/:email', async (req, res) => {
+      const email = req.params.email;
+
+      // if (email !== req.decoded.email) {
+      //   return res.status(403).send({ message: 'forbidden access' })
+      // }
+
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === 'Admin';
+      }
+      res.send({ admin });
+    });
+
+    app.get('/users/role/:email', async (req, res) => {
+      const email = req.params.email;
+
+      // if (email !== req.decoded.email) {
+      //     return res.status(403).send({ message: 'forbidden access' })
+      // }
+
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let role = "User";
+      if (user) {
+        type = user?.role;
+      }
+      res.send({ role: role });
+    });
+
+    app.get('/users/delivery-men', async (req, res) => {
+      const query = { role: "Delivery Man" };
+      const deliveryMen = await userCollection.find(query).toArray();
+      res.send(deliveryMen);
+    });
+
+    //manage button api
+    app.patch('/parcels/update-admin/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateParcel = req.body;
+      const parcel = {
+        $set: {
+          deliveryManID: updateParcel.deliveryManID,
+          approxDeliveryDate: updateParcel.approxDeliveryDate,
+          status: "On The Way"
+        }
+      }
+      const result = await bookingCollection.updateOne(filter, parcel, options);
+      res.send(result);
+    })
+
+    app.get('/userCount', async (req, res) => {
+      const query = { role: "User" };
+      const count = await userCollection.countDocuments(query);
+      res.send({ count });
+    })
+
+
+    app.get('/user-booking-count/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email }
+      const count = await bookingCollection.countDocuments(query);
+      res.send({ count });
+    })
 
     app.post('/users', async (req, res) => {
       const user = req.body
@@ -82,6 +151,39 @@ async function run() {
       res.send(result)
     })
 
+    //all delivery man api
+    app.get('/users/delivery-men', async (req, res) => {
+      const query = { role: "Delivery Man" };
+      const deliveryMen = await userCollection.find(query).toArray();
+      res.send(deliveryMen);
+    });
+
+
+    app.get('/delivery-man-delivered-count/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { deliveryManID: id, status: "Delivered" }
+      const count = await bookingCollection.countDocuments(query);
+      res.send({ count });
+    })
+
+    app.get('/delivery-man-average-rating/:id', async (req, res) => {
+      const id = req.params.id;
+      const result = await reviewCollection.aggregate([
+        {
+          $match: { deliveryManID: id }
+        },
+        {
+          $group: {
+            _id: '$deliveryManID',
+            averageRating: { $avg: '$rating' }
+          }
+        }
+      ]).toArray();
+
+      const averageRating = result.length > 0 ? result[0].averageRating : 0;
+
+      res.json({ averageRating });
+    })
 
 
     // get a user info by email from db
@@ -117,6 +219,27 @@ async function run() {
       res.send(result)
     })
 
+    app.get('/userCount', async (req, res) => {
+      const query = { role: "User" };
+      const count = await userCollection.countDocuments(query);
+      res.send({ count });
+    })
+
+
+    //delivery man related api
+    app.get('/user-by-email/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      res.send(user);
+    });
+
+    app.get('/parcels/delivery-man/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { deliveryManID: id }
+      const result = await bookingCollection.find(query).toArray();
+      res.send(result);
+    })
 
     //booking related api
 
@@ -133,12 +256,146 @@ async function run() {
       res.send(result)
     })
 
-    //for statistics
-    app.get('/bookings', async (req, res) => {
-      // const email = req.query.email
-      // const query = { email: email }
-      const result = await bookingCollection.find().toArray()
-      res.send(result)
+    app.get('/parcelsCount', async (req, res) => {
+      const count = await bookingCollection.countDocuments();
+      res.send({ count });
+    })
+
+    app.get('/deliveredParcelsCount', async (req, res) => {
+      const query = { status: "Delivered" };
+      const count = await bookingCollection.countDocuments(query);
+      res.send({ count });
+    })
+
+
+    app.get('/top-delivery-men', async (req, res) => {
+      const deliveryMen = await userCollection.aggregate([
+        {
+          $match: { role: "Delivery Man" }
+        },
+        {
+          $lookup: {
+            from: 'bookings',
+            let: { deliveryManId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$deliveryManID', { $toString: '$$deliveryManId' }] },
+                      { $eq: ['$status', 'Delivered'] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'deliveredParcels'
+          }
+        },
+        {
+          $addFields: {
+            deliveredCount: { $size: '$deliveredParcels' }
+          }
+        },
+        {
+          $lookup: {
+            from: 'reviews',
+            let: { deliveryManId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ['$deliveryManID', { $toString: '$$deliveryManId' }]
+                  }
+                }
+              },
+              {
+                $group: {
+                  _id: null,
+                  averageRating: { $avg: '$rating' }
+                }
+              }
+            ],
+            as: 'ratingInfo'
+          }
+        },
+        {
+          $addFields: {
+            averageRating: { $arrayElemAt: ['$ratingInfo.averageRating', 0] }
+          }
+        },
+        {
+          $sort: { deliveredCount: -1 }
+        },
+        {
+          $limit: 3
+        },
+        {
+          $project: {
+            _id: 1,
+            email: 1,
+            name: 1,
+            photo: 1,
+            deliveredCount: 1,
+            averageRating: 1
+          }
+        }
+      ]).toArray();
+
+      res.send(deliveryMen);
+    });
+
+
+    app.get('/delivery-man/reviews/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { deliveryManID: id }
+      const result = await reviewCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+    app.post('/delivery-man/review', async (req, res) => {
+      const review = req.body;
+      const result = await reviewCollection.insertOne(review);
+      res.send(result);
+    });
+
+    // //for statistics
+    // app.get('/bookings', async (req, res) => {
+    //   // const email = req.query.email
+    //   // const query = { email: email }
+    //   const result = await bookingCollection.find().toArray()
+    //   res.send(result)
+    // })
+
+    //Statistics
+    app.get('/statistics', async (req, res) => {
+      const bookings = await bookingCollection.aggregate([
+        {
+          $group: {
+            _id: "$bookingDate",
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]).toArray();
+
+      const delivered = await bookingCollection.aggregate([
+        { $match: { status: "Delivered" } },
+        {
+          $group: {
+            _id: "$bookingDate",
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]).toArray();
+
+      const dates = bookings.map(b => b._id);
+      const bookingsData = bookings.map(b => b.count);
+      const deliveredData = delivered.map(d => d.count);
+
+      res.json({ bookings: bookingsData, delivered: deliveredData, dates });
     })
 
     app.get('/booking/:id', async (req, res) => {
